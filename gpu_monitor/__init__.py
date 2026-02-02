@@ -43,6 +43,11 @@ def main():
         help='Visualize the most recent log file'
     )
     view_parser.add_argument(
+        '--live',
+        action='store_true',
+        help='Live mode - continuously update as new data is logged'
+    )
+    view_parser.add_argument(
         '--show-gpu',
         action='store_true',
         help='Show GPU utilization plot'
@@ -163,7 +168,7 @@ def run_view_mode(args):
     show_temp = args.show_temp or show_all
     show_power = args.show_power or show_all
 
-    app = GPUMonitorApp(log_file, live_mode=False,
+    app = GPUMonitorApp(log_file, live_mode=args.live,
                        show_gpu=show_gpu, show_mem=show_mem,
                        show_temp=show_temp, show_power=show_power)
     app.run()
