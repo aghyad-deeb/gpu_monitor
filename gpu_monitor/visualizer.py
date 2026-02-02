@@ -387,12 +387,33 @@ class GPUMonitorApp(App):
 
         self.reset_view()
         self.update_title()
+        self.update_grid_columns()
 
         # Delay initial update to ensure widgets are fully mounted
         self.set_timer(0.1, self.update_plots)
 
         if self.live_mode:
             self.set_interval(self.update_interval, self.update_live_data)
+
+    def on_resize(self, event) -> None:
+        """Handle terminal resize."""
+        self.update_grid_columns()
+
+    def update_grid_columns(self):
+        """Update grid columns based on terminal width."""
+        # GPUCard min-width is 56, plus gutter and padding
+        card_width = 60  # 56 + some padding/gutter
+        terminal_width = self.size.width
+
+        # Calculate how many columns fit
+        columns = max(1, terminal_width // card_width)
+
+        # Update grid style
+        try:
+            grid = self.query_one("#gpu-grid", Grid)
+            grid.styles.grid_size_columns = columns
+        except Exception:
+            pass
 
     def update_title(self):
         """Update title bar with file info."""
