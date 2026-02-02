@@ -20,7 +20,7 @@ BRAILLE_MAP = [
 ]
 
 
-def create_braille_graph(values, width, height, color="cyan", filled=True, per_column_color=False, raw_values=None, value_max=100):
+def create_braille_graph(values, width, height, color="cyan", filled=True, per_column_color=False, raw_values=None, value_max=100, return_lines=False):
     """
     Create a high-resolution graph using Braille patterns.
 
@@ -37,6 +37,7 @@ def create_braille_graph(values, width, height, color="cyan", filled=True, per_c
         per_column_color: If True, color each column based on its value
         raw_values: Original values for coloring (before normalization)
         value_max: Maximum value for color scaling (e.g., 100 for percentage, 80 for GB)
+        return_lines: If True, return list of Text objects (one per line) instead of single Text
     """
     if not values or width < 1 or height < 1:
         return Text("No data", style="dim")
@@ -119,14 +120,24 @@ def create_braille_graph(values, width, height, color="cyan", filled=True, per_c
 
         grid.append(row_data)
 
-    text = Text()
-    for i, row_data in enumerate(grid):
-        for char, col_color in row_data:
-            text.append(char, style=col_color)
-        if i < len(grid) - 1:
-            text.append("\n")
-
-    return text
+    if return_lines:
+        # Return list of Text objects, one per line
+        lines = []
+        for row_data in grid:
+            line_text = Text()
+            for char, col_color in row_data:
+                line_text.append(char, style=col_color)
+            lines.append(line_text)
+        return lines
+    else:
+        # Return single Text with newlines
+        text = Text()
+        for i, row_data in enumerate(grid):
+            for char, col_color in row_data:
+                text.append(char, style=col_color)
+            if i < len(grid) - 1:
+                text.append("\n")
+        return text
 
 
 def get_gradient_color(value, low_color="green", mid_color="yellow", high_color="red"):
@@ -252,43 +263,16 @@ class AxisPlot:
         text.append("\n")
 
         # Create braille graph with per-column coloring based on actual values
-        braille_graph = create_braille_graph(
+        # Use return_lines=True to get a list of Text objects with colors preserved
+        graph_lines = create_braille_graph(
             values, self.plot_width, self.height - 2, color,
-            per_column_color=True, raw_values=values, value_max=color_max
+            per_column_color=True, raw_values=values, value_max=color_max,
+            return_lines=True
         )
 
-        # Add graph rows with Y-axis
-        # Split the Text object properly to preserve colors
-        graph_str = str(braille_graph)
-        graph_lines = graph_str.split('\n')
-
-        # We need to extract styled segments per line from the original Text
-        # Rebuild each line with proper colors
-        line_texts = []
-        current_line = Text()
-        for span in braille_graph._spans:
-            pass  # spans don't help here
-
-        # Actually, let's rebuild by iterating through the text and its styles
-        # The braille_graph Text object has the colors - we need to split it by lines
-        plain = braille_graph.plain
-        lines_plain = plain.split('\n')
-
-        # Create separate Text objects for each line, preserving styles
-        char_idx = 0
-        for line_idx, line_plain in enumerate(lines_plain):
-            line_text = Text()
-            for char in line_plain:
-                # Find the style at this character position
-                style = braille_graph.get_style_at_offset(char_idx)
-                line_text.append(char, style=style)
-                char_idx += 1
-            char_idx += 1  # Skip the newline
-            line_texts.append(line_text)
-
-        for i, line_text in enumerate(line_texts):
+        for i, line_text in enumerate(graph_lines):
             # Y-axis label (only at certain positions)
-            if i == len(line_texts) // 2:
+            if i == len(graph_lines) // 2:
                 mid_val = (max_val + min_val) / 2
                 if y_unit == "GB":
                     text.append(f"{mid_val:6.1f}│", style="dim")
