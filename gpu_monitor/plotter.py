@@ -20,7 +20,7 @@ BRAILLE_MAP = [
 ]
 
 
-def create_braille_graph(values, width, height, color="cyan", filled=True):
+def create_braille_graph(values, width, height, color="cyan", filled=True, per_column_color=False, raw_values=None, value_max=100):
     """
     Create a high-resolution graph using Braille patterns.
 
@@ -32,36 +32,46 @@ def create_braille_graph(values, width, height, color="cyan", filled=True):
         values: List of numeric values to plot
         width: Width in characters
         height: Height in characters
-        color: Color for the graph
+        color: Color for the graph (used if per_column_color=False)
         filled: If True, fill area under line; if False, draw only line
+        per_column_color: If True, color each column based on its value
+        raw_values: Original values for coloring (before normalization)
+        value_max: Maximum value for color scaling (e.g., 100 for percentage, 80 for GB)
     """
     if not values or width < 1 or height < 1:
         return Text("No data", style="dim")
 
-    # Normalize values to 0-1 range
+    # Normalize values to 0-1 range for plotting
     min_val = min(values)
     max_val = max(values)
     val_range = max_val - min_val if max_val != min_val else 1
     normalized = [(v - min_val) / val_range for v in values]
+
+    # Keep raw values for coloring (use original values if provided)
+    color_values = raw_values if raw_values is not None else values
 
     # Resample to fit width (2 data points per braille character)
     target_points = width * 2
     if len(normalized) > target_points:
         step = len(normalized) / target_points
         normalized = [normalized[int(i * step)] for i in range(target_points)]
+        color_values = [color_values[int(i * step)] for i in range(target_points)]
     elif len(normalized) < target_points:
-        # Pad with last value at the beginning (older data)
-        padding = [normalized[0]] * (target_points - len(normalized))
-        normalized = padding + normalized
+        # Pad with first value at the beginning (older data)
+        padding_n = [normalized[0]] * (target_points - len(normalized))
+        padding_c = [color_values[0]] * (target_points - len(color_values))
+        normalized = padding_n + normalized
+        color_values = padding_c + color_values
 
     # Total vertical dots = height * 4 (4 dots per braille row)
     total_dots_v = height * 4
 
     # Build the graph row by row (top to bottom)
-    rows = []
+    # Store both characters and their colors
+    grid = []  # grid[row][col] = (char_code, color)
 
     for row in range(height):
-        line = []
+        row_data = []
         for col in range(width):
             char_code = BRAILLE_OFFSET
 
@@ -94,14 +104,26 @@ def create_braille_graph(values, width, height, color="cyan", filled=True):
                     if dot_pos == dot_y2 or (dot_row < 3 and dot_pos < dot_y2 and (height - 1 - row) * 4 + (3 - dot_row - 1) > dot_y2):
                         char_code |= BRAILLE_MAP[dot_row][1]
 
-            line.append(chr(char_code))
+            # Determine color for this column based on actual value (not normalized)
+            if per_column_color:
+                c1 = color_values[idx1] if idx1 < len(color_values) else 0
+                c2 = color_values[idx2] if idx2 < len(color_values) else 0
+                avg_raw = (c1 + c2) / 2
+                # Scale to 0-1 range based on value_max
+                scaled = min(avg_raw / value_max, 1.0)
+                col_color = get_gradient_color(scaled)
+            else:
+                col_color = color
 
-        rows.append(''.join(line))
+            row_data.append((chr(char_code), col_color))
+
+        grid.append(row_data)
 
     text = Text()
-    for i, row in enumerate(rows):
-        text.append(row, style=color)
-        if i < len(rows) - 1:
+    for i, row_data in enumerate(grid):
+        for char, col_color in row_data:
+            text.append(char, style=col_color)
+        if i < len(grid) - 1:
             text.append("\n")
 
     return text
@@ -186,7 +208,7 @@ class AxisPlot:
         self.plot_width = width - self.y_axis_width - 1
 
     def render(self, values, timestamps, y_label, y_unit, min_val=None, max_val=None,
-               color="cyan", process_names=None):
+               color="cyan", process_names=None, color_max=100):
         """Render a beautiful plot with axes."""
         if not values:
             return Text("  No data available", style="dim")
@@ -229,8 +251,11 @@ class AxisPlot:
         text.append("┌" + "─" * self.plot_width + "┐", style="#6e7681")
         text.append("\n")
 
-        # Create braille graph
-        braille_graph = create_braille_graph(values, self.plot_width, self.height - 2, color)
+        # Create braille graph with per-column coloring based on actual values
+        braille_graph = create_braille_graph(
+            values, self.plot_width, self.height - 2, color,
+            per_column_color=True, raw_values=values, value_max=color_max
+        )
 
         # Add graph rows with Y-axis
         graph_lines = str(braille_graph).split('\n')
@@ -303,30 +328,35 @@ def create_plot(values, timestamps, metric_name, y_label, y_unit, width=50, heig
     if not values:
         return Text("  No data", style="dim")
 
-    # Color based on metric type and value
+    # Color thresholds based on metric type
     avg = sum(values) / len(values)
-    max_val_data = max(values)
 
     if metric_name == "util":
         color = get_gradient_color(avg / 100)
         min_val, max_val = 0, 100
+        color_max = 100  # 0-100%
     elif metric_name == "mem":
-        # Memory in GB
-        color = get_gradient_color(avg / 80)  # Assume 80GB max
+        # Memory in GB - assume 80GB max for coloring
+        color = get_gradient_color(avg / 80)
         min_val = None
         max_val = None
+        color_max = 80  # GB
     elif metric_name == "temp":
-        color = get_gradient_color((avg - 30) / 60)  # 30-90C range
+        # Temperature - 30C is green, 90C is red
+        color = get_gradient_color((avg - 30) / 60)
         min_val = None
         max_val = None
+        color_max = 90  # Celsius (but scaled from 30)
     elif metric_name == "power":
-        color = get_gradient_color(avg / 400)  # Assume 400W max
+        color = get_gradient_color(avg / 400)
         min_val = None
         max_val = None
+        color_max = 400  # Watts
     else:
         color = "cyan"
         min_val = None
         max_val = None
+        color_max = 100
 
     plotter = AxisPlot(width=width, height=height)
-    return plotter.render(values, timestamps, y_label, y_unit, min_val, max_val, color, process_names)
+    return plotter.render(values, timestamps, y_label, y_unit, min_val, max_val, color, process_names, color_max)
