@@ -258,10 +258,37 @@ class AxisPlot:
         )
 
         # Add graph rows with Y-axis
-        graph_lines = str(braille_graph).split('\n')
-        for i, line in enumerate(graph_lines):
+        # Split the Text object properly to preserve colors
+        graph_str = str(braille_graph)
+        graph_lines = graph_str.split('\n')
+
+        # We need to extract styled segments per line from the original Text
+        # Rebuild each line with proper colors
+        line_texts = []
+        current_line = Text()
+        for span in braille_graph._spans:
+            pass  # spans don't help here
+
+        # Actually, let's rebuild by iterating through the text and its styles
+        # The braille_graph Text object has the colors - we need to split it by lines
+        plain = braille_graph.plain
+        lines_plain = plain.split('\n')
+
+        # Create separate Text objects for each line, preserving styles
+        char_idx = 0
+        for line_idx, line_plain in enumerate(lines_plain):
+            line_text = Text()
+            for char in line_plain:
+                # Find the style at this character position
+                style = braille_graph.get_style_at_offset(char_idx)
+                line_text.append(char, style=style)
+                char_idx += 1
+            char_idx += 1  # Skip the newline
+            line_texts.append(line_text)
+
+        for i, line_text in enumerate(line_texts):
             # Y-axis label (only at certain positions)
-            if i == len(graph_lines) // 2:
+            if i == len(line_texts) // 2:
                 mid_val = (max_val + min_val) / 2
                 if y_unit == "GB":
                     text.append(f"{mid_val:6.1f}│", style="dim")
@@ -270,7 +297,7 @@ class AxisPlot:
             else:
                 text.append("      │", style="dim")
 
-            text.append(line, style=color)
+            text.append_text(line_text)
             text.append("│", style="#6e7681")
             text.append("\n")
 

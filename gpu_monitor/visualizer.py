@@ -213,25 +213,25 @@ class GPUCard(Static):
             if self.show_gpu:
                 util_values = [p['utilization_gpu'] for p in self.history]
                 plot_text = create_plot(util_values, timestamps, "util", "GPU", "%",
-                                       width=50, height=4, process_names=process_names)
+                                       width=50, height=5, process_names=process_names)
                 text.append_text(plot_text)
 
             if self.show_mem:
                 mem_values = [p['memory_used'] / 1024 for p in self.history]
                 plot_text = create_plot(mem_values, timestamps, "mem", "MEM", "GB",
-                                       width=50, height=4, process_names=process_names)
+                                       width=50, height=5, process_names=process_names)
                 text.append_text(plot_text)
 
             if self.show_temp:
                 temp_values = [p['temperature'] for p in self.history]
                 plot_text = create_plot(temp_values, timestamps, "temp", "TMP", "°C",
-                                       width=50, height=4, process_names=process_names)
+                                       width=50, height=5, process_names=process_names)
                 text.append_text(plot_text)
 
             if self.show_power:
                 power_values = [p['power_draw'] for p in self.history]
                 plot_text = create_plot(power_values, timestamps, "power", "PWR", "W",
-                                       width=50, height=4, process_names=process_names)
+                                       width=50, height=5, process_names=process_names)
                 text.append_text(plot_text)
 
         return text
@@ -283,7 +283,7 @@ class GPUMonitorApp(App):
 
     GPUCard {
         height: auto;
-        min-height: 13;
+        min-height: 15;
         min-width: 56;
         background: #161b22;
         border: solid #6e7681;
