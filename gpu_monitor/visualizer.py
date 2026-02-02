@@ -153,20 +153,20 @@ class GPUCard(Static):
             status_color = "green"
             status_text = "IDLE"
 
-        text.append(f"  GPU {self.gpu_id}", style="bold white")
+        text.append(f" GPU {self.gpu_id}", style="bold white")
         text.append(" │ ", style="bright_black")
         text.append(f"{status_icon} ", style=f"bold {status_color}")
         text.append(f"{status_text}", style=f"{status_color}")
+        text.append("\n")
 
-        # Process info in header
+        # Process info on its own row
         process_info = metrics.get('process_info', '')
         if process_info:
-            if len(process_info) > 30:
-                process_info = process_info[:27] + "..."
-            text.append(" │ ", style="bright_black")
+            if len(process_info) > 40:
+                process_info = process_info[:37] + "..."
+            text.append(" ⚙ ", style="dim")
             text.append(f"{process_info}", style="magenta")
-
-        text.append("\n")
+            text.append("\n")
 
         # ═══════════════════════════════════════════════════════════
         # METRICS BAR: Compact view of all metrics with progress bars
@@ -176,33 +176,30 @@ class GPUCard(Static):
         temp = metrics['temperature']
         power = metrics['power_draw']
 
-        # GPU Utilization bar
-        text.append("  ", style="")
-        text.append("GPU ", style="dim")
-        text.append_text(create_progress_bar(util, 100, width=12, show_percent=False))
-        text.append(f" {util:5.1f}%", style="bold " + ("red" if util > 80 else ("yellow" if util > 30 else "green")))
+        # GPU and Memory on same line (smaller bars)
+        text.append(" GPU ", style="dim")
+        text.append_text(create_progress_bar(util, 100, width=8, show_percent=False))
+        text.append(f"{util:4.0f}%", style="bold " + ("red" if util > 80 else ("yellow" if util > 30 else "green")))
 
-        # Memory bar
         text.append(" │ ", style="bright_black")
         text.append("MEM ", style="dim")
         mem_pct = (mem_used / mem_total * 100) if mem_total > 0 else 0
-        text.append_text(create_progress_bar(mem_used, mem_total, width=12, show_percent=False))
-        text.append(f" {mem_used:5.1f}G", style="bold " + ("red" if mem_pct > 80 else ("yellow" if mem_pct > 60 else "green")))
+        text.append_text(create_progress_bar(mem_used, mem_total, width=8, show_percent=False))
+        text.append(f"{mem_used:4.0f}G", style="bold " + ("red" if mem_pct > 80 else ("yellow" if mem_pct > 60 else "green")))
 
         text.append("\n")
 
-        # Temperature and Power on second line
-        text.append("  ", style="")
-        text.append("TMP ", style="dim")
-        text.append_text(create_progress_bar(temp, 100, width=12, show_percent=False))
+        # Temperature and Power on second line (smaller bars)
+        text.append(" TMP ", style="dim")
+        text.append_text(create_progress_bar(temp, 100, width=8, show_percent=False))
         temp_color = "red" if temp > 80 else ("yellow" if temp > 65 else "green")
-        text.append(f" {temp:5.0f}°", style=f"bold {temp_color}")
+        text.append(f"{temp:4.0f}°", style=f"bold {temp_color}")
 
         text.append(" │ ", style="bright_black")
         text.append("PWR ", style="dim")
-        text.append_text(create_progress_bar(power, 400, width=12, show_percent=False))
+        text.append_text(create_progress_bar(power, 400, width=8, show_percent=False))
         power_color = "red" if power > 300 else ("yellow" if power > 200 else "green")
-        text.append(f" {power:5.0f}W", style=f"bold {power_color}")
+        text.append(f"{power:4.0f}W", style=f"bold {power_color}")
 
         text.append("\n")
 
@@ -213,30 +210,30 @@ class GPUCard(Static):
             timestamps = [parse_timestamp(p['timestamp']) for p in self.history]
             process_names = [p.get('process_info', '') for p in self.history]
 
-            text.append("  ─────────────────────────────────────────────────────\n", style="#6e7681")
+            text.append(" ───────────────────────────────────────\n", style="#6e7681")
 
             if self.show_gpu:
                 util_values = [p['utilization_gpu'] for p in self.history]
                 plot_text = create_plot(util_values, timestamps, "util", "GPU", "%",
-                                       width=54, height=6, process_names=process_names)
+                                       width=42, height=5, process_names=process_names)
                 text.append_text(plot_text)
 
             if self.show_mem:
                 mem_values = [p['memory_used'] / 1024 for p in self.history]
                 plot_text = create_plot(mem_values, timestamps, "mem", "MEM", "GB",
-                                       width=54, height=6, process_names=process_names)
+                                       width=42, height=5, process_names=process_names)
                 text.append_text(plot_text)
 
             if self.show_temp:
                 temp_values = [p['temperature'] for p in self.history]
                 plot_text = create_plot(temp_values, timestamps, "temp", "TMP", "°C",
-                                       width=54, height=6, process_names=process_names)
+                                       width=42, height=5, process_names=process_names)
                 text.append_text(plot_text)
 
             if self.show_power:
                 power_values = [p['power_draw'] for p in self.history]
                 plot_text = create_plot(power_values, timestamps, "power", "PWR", "W",
-                                       width=54, height=6, process_names=process_names)
+                                       width=42, height=5, process_names=process_names)
                 text.append_text(plot_text)
 
         return text
