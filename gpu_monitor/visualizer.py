@@ -397,16 +397,21 @@ class GPUMonitorApp(App):
 
     def on_resize(self, event) -> None:
         """Handle terminal resize."""
-        self.update_grid_columns()
+        self.update_grid_columns(event.size.width)
 
-    def update_grid_columns(self):
+    def update_grid_columns(self, width=None):
         """Update grid columns based on terminal width."""
         # GPUCard min-width is 56, plus gutter and padding
         card_width = 60  # 56 + some padding/gutter
-        terminal_width = self.size.width
+
+        if width is None:
+            width = self.size.width
 
         # Calculate how many columns fit
-        columns = max(1, terminal_width // card_width)
+        columns = max(1, width // card_width)
+
+        # Debug: update title to show width and columns
+        self.sub_title = f"w={width} cols={columns}"
 
         # Update grid style
         try:
