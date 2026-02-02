@@ -162,8 +162,6 @@ class GPUCard(Static):
         # Process info on its own row
         process_info = metrics.get('process_info', '')
         if process_info:
-            if len(process_info) > 40:
-                process_info = process_info[:37] + "..."
             text.append(" ⚙ ", style="dim")
             text.append(f"{process_info}", style="magenta")
             text.append("\n")
