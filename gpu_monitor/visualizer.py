@@ -1,6 +1,6 @@
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static, Label
-from textual.containers import Container, Vertical, Horizontal, Grid
+from textual.containers import Container, Vertical, Horizontal, Grid, VerticalScroll
 from textual import events
 from textual.reactive import reactive
 from rich.text import Text
@@ -258,9 +258,10 @@ class GPUMonitorApp(App):
     }
 
     #main-container {
-        height: 100%;
+        height: 1fr;
         padding: 0;
         background: #0d1117;
+        scrollbar-gutter: stable;
     }
 
     #title-bar {
@@ -317,10 +318,14 @@ class GPUMonitorApp(App):
         ("right", "pan_right", "Pan →"),
         ("l", "pan_right", "Pan →"),
         ("minus", "zoom_out", "- Zoom"),
-        ("j", "zoom_out", "- Zoom"),
         ("plus", "zoom_in", "+ Zoom"),
         ("equal", "zoom_in", "+ Zoom"),
-        ("k", "zoom_in", "+ Zoom"),
+        ("j", "scroll_down", "↓ Scroll"),
+        ("k", "scroll_up", "↑ Scroll"),
+        ("ctrl+d", "page_down", "PgDn"),
+        ("ctrl+u", "page_up", "PgUp"),
+        ("g", "scroll_top", "Top"),
+        ("G", "scroll_bottom", "Bottom"),
         ("home", "jump_start", "⟨⟨ Start"),
         ("end", "jump_end", "End ⟩⟩"),
         ("r", "reset_view", "⟲ Reset"),
@@ -353,7 +358,7 @@ class GPUMonitorApp(App):
         """Compose the UI."""
         yield Header()
 
-        with Vertical(id="main-container"):
+        with VerticalScroll(id="main-container"):
             yield Static("", id="title-bar")
 
             with Grid(id="gpu-grid"):
@@ -678,3 +683,33 @@ class GPUMonitorApp(App):
         if self.live_mode:
             self.paused = not self.paused
             self.update_plots()
+
+    def action_scroll_down(self):
+        """Scroll down (vim j)."""
+        container = self.query_one("#main-container", VerticalScroll)
+        container.scroll_relative(y=3)
+
+    def action_scroll_up(self):
+        """Scroll up (vim k)."""
+        container = self.query_one("#main-container", VerticalScroll)
+        container.scroll_relative(y=-3)
+
+    def action_page_down(self):
+        """Scroll down half page (vim Ctrl+d)."""
+        container = self.query_one("#main-container", VerticalScroll)
+        container.scroll_relative(y=container.size.height // 2)
+
+    def action_page_up(self):
+        """Scroll up half page (vim Ctrl+u)."""
+        container = self.query_one("#main-container", VerticalScroll)
+        container.scroll_relative(y=-container.size.height // 2)
+
+    def action_scroll_top(self):
+        """Scroll to top (vim g)."""
+        container = self.query_one("#main-container", VerticalScroll)
+        container.scroll_home()
+
+    def action_scroll_bottom(self):
+        """Scroll to bottom (vim G)."""
+        container = self.query_one("#main-container", VerticalScroll)
+        container.scroll_end()
