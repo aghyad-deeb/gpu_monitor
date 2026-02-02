@@ -283,7 +283,7 @@ class GPUMonitorApp(App):
 
     GPUCard {
         height: auto;
-        min-height: 16;
+        min-height: 24;
         min-width: 60;
         background: #161b22;
         border: solid #6e7681;
