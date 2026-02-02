@@ -106,12 +106,13 @@ def create_braille_graph(values, width, height, color="cyan", filled=True, per_c
                         char_code |= BRAILLE_MAP[dot_row][1]
 
             # Determine color for this column based on actual value (not normalized)
+            # Use MAX of the two values so the visible peak determines the color
             if per_column_color:
                 c1 = color_values[idx1] if idx1 < len(color_values) else 0
                 c2 = color_values[idx2] if idx2 < len(color_values) else 0
-                avg_raw = (c1 + c2) / 2
+                max_raw = max(c1, c2)
                 # Scale to 0-1 range based on value_max
-                scaled = min(avg_raw / value_max, 1.0)
+                scaled = min(max_raw / value_max, 1.0)
                 col_color = get_gradient_color(scaled)
             else:
                 col_color = color
