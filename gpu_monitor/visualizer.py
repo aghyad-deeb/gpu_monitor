@@ -213,25 +213,25 @@ class GPUCard(Static):
             if self.show_gpu:
                 util_values = [p['utilization_gpu'] for p in self.history]
                 plot_text = create_plot(util_values, timestamps, "util", "GPU", "%",
-                                       width=50, height=7, process_names=process_names)
+                                       width=50, height=4, process_names=process_names)
                 text.append_text(plot_text)
 
             if self.show_mem:
                 mem_values = [p['memory_used'] / 1024 for p in self.history]
                 plot_text = create_plot(mem_values, timestamps, "mem", "MEM", "GB",
-                                       width=50, height=7, process_names=process_names)
+                                       width=50, height=4, process_names=process_names)
                 text.append_text(plot_text)
 
             if self.show_temp:
                 temp_values = [p['temperature'] for p in self.history]
                 plot_text = create_plot(temp_values, timestamps, "temp", "TMP", "°C",
-                                       width=50, height=7, process_names=process_names)
+                                       width=50, height=4, process_names=process_names)
                 text.append_text(plot_text)
 
             if self.show_power:
                 power_values = [p['power_draw'] for p in self.history]
                 plot_text = create_plot(power_values, timestamps, "power", "PWR", "W",
-                                       width=50, height=7, process_names=process_names)
+                                       width=50, height=4, process_names=process_names)
                 text.append_text(plot_text)
 
         return text
@@ -264,26 +264,26 @@ class GPUMonitorApp(App):
     }
 
     #title-bar {
-        height: 3;
+        height: 2;
         background: #161b22;
         color: #58a6ff;
         content-align: center middle;
         text-style: bold;
-        border: solid #58a6ff;
-        margin: 0 1 1 1;
+        border: none;
+        margin: 0 1 0 1;
     }
 
     #gpu-grid {
         height: auto;
         layout: grid;
         grid-size: 2;
-        grid-gutter: 1 2;
+        grid-gutter: 0 1;
         padding: 0 1;
     }
 
     GPUCard {
         height: auto;
-        min-height: 18;
+        min-height: 13;
         min-width: 56;
         background: #161b22;
         border: solid #6e7681;
@@ -296,11 +296,11 @@ class GPUMonitorApp(App):
 
     #controls {
         dock: bottom;
-        height: 2;
+        height: 1;
         background: #161b22;
         color: #8b949e;
         content-align: center middle;
-        border-top: solid #6e7681;
+        border-top: none;
     }
 
     .status-bar {
