@@ -8,6 +8,32 @@ from rich.text import Text
 from datetime import datetime, timedelta
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# GRUVBOX DARK THEME - 256 COLOR PALETTE (tmux compatible)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Background:  bg0=235, bg1=237, bg2=239, bg3=241, bg4=243
+# Foreground:  fg=223, fg4=246
+# Accents:     red=167, green=142, yellow=214, blue=109
+#              purple=175, aqua=108, orange=208
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Gruvbox 256-color constants
+GRV_BG0 = "color(235)"      # #282828
+GRV_BG1 = "color(237)"      # #3c3836
+GRV_BG2 = "color(239)"      # #504945
+GRV_BG3 = "color(241)"      # #665c54
+GRV_BG4 = "color(243)"      # #7c6f64
+GRV_FG = "color(223)"       # #ebdbb2
+GRV_FG4 = "color(246)"      # #a89984
+GRV_RED = "color(167)"      # #fb4934
+GRV_GREEN = "color(142)"    # #b8bb26
+GRV_YELLOW = "color(214)"   # #fabd2f
+GRV_BLUE = "color(109)"     # #83a598
+GRV_PURPLE = "color(175)"   # #d3869b
+GRV_AQUA = "color(108)"     # #8ec07c
+GRV_ORANGE = "color(208)"   # #fe8019
+
+
 # Braille patterns for high-resolution graphing
 # Each braille character is a 2x4 dot matrix, giving us 8 levels per character width
 # and 4 levels per character height - much better than block characters!
@@ -20,7 +46,7 @@ BRAILLE_MAP = [
 ]
 
 
-def create_braille_graph(values, width, height, color="cyan", filled=True, per_column_color=False, raw_values=None, value_max=100, return_lines=False):
+def create_braille_graph(values, width, height, color=None, filled=True, per_column_color=False, raw_values=None, value_max=100, return_lines=False):
     """
     Create a high-resolution graph using Braille patterns.
 
@@ -32,15 +58,18 @@ def create_braille_graph(values, width, height, color="cyan", filled=True, per_c
         values: List of numeric values to plot
         width: Width in characters
         height: Height in characters
-        color: Color for the graph (used if per_column_color=False)
+        color: Color for the graph (used if per_column_color=False). Defaults to Gruvbox aqua.
         filled: If True, fill area under line; if False, draw only line
         per_column_color: If True, color each column based on its value
         raw_values: Original values for coloring (before normalization)
         value_max: Maximum value for color scaling (e.g., 100 for percentage, 80 for GB)
         return_lines: If True, return list of Text objects (one per line) instead of single Text
     """
+    if color is None:
+        color = GRV_AQUA
+
     if not values or width < 1 or height < 1:
-        return Text("No data", style="dim")
+        return Text("No data", style=GRV_FG4)
 
     # Normalize values to 0-1 range for plotting
     min_val = min(values)
@@ -141,8 +170,15 @@ def create_braille_graph(values, width, height, color="cyan", filled=True, per_c
         return text
 
 
-def get_gradient_color(value, low_color="green", mid_color="yellow", high_color="red"):
-    """Get color based on value (0-1 range)."""
+def get_gradient_color(value, low_color=None, mid_color=None, high_color=None):
+    """Get color based on value (0-1 range). Uses Gruvbox colors by default."""
+    if low_color is None:
+        low_color = GRV_GREEN
+    if mid_color is None:
+        mid_color = GRV_YELLOW
+    if high_color is None:
+        high_color = GRV_RED
+
     if value < 0.5:
         return low_color
     elif value < 0.75:
@@ -151,10 +187,13 @@ def get_gradient_color(value, low_color="green", mid_color="yellow", high_color=
         return high_color
 
 
-def create_sparkline(values, width=20, color="cyan"):
-    """Create a compact sparkline using block characters."""
+def create_sparkline(values, width=20, color=None):
+    """Create a compact sparkline using block characters. Uses Gruvbox aqua by default."""
+    if color is None:
+        color = GRV_AQUA
+
     if not values:
-        return Text("─" * width, style="dim")
+        return Text("─" * width, style=GRV_FG4)
 
     blocks = " ▁▂▃▄▅▆▇█"
     min_val = min(values)
@@ -180,29 +219,29 @@ def create_sparkline(values, width=20, color="cyan"):
 
 
 def create_progress_bar(value, max_value, width=20, show_percent=True):
-    """Create a beautiful gradient progress bar."""
+    """Create a beautiful gradient progress bar with Gruvbox colors."""
     if max_value <= 0:
-        return Text("─" * width, style="dim")
+        return Text("─" * width, style=GRV_FG4)
 
     percent = min(value / max_value, 1.0)
     filled = int(width * percent)
 
-    # Gradient colors based on percentage
+    # Gradient colors based on percentage - Gruvbox colors
     if percent < 0.5:
-        filled_color = "green"
-        text_color = "bold green"
+        filled_color = GRV_GREEN
+        text_color = f"bold {GRV_GREEN}"
     elif percent < 0.75:
-        filled_color = "yellow"
-        text_color = "bold yellow"
+        filled_color = GRV_YELLOW
+        text_color = f"bold {GRV_YELLOW}"
     else:
-        filled_color = "red"
-        text_color = "bold red"
+        filled_color = GRV_RED
+        text_color = f"bold {GRV_RED}"
 
     text = Text()
     # Filled portion with gradient effect
     text.append("█" * filled, style=filled_color)
-    # Empty portion - use a visible gray
-    text.append("░" * (width - filled), style="#4a4a4a")
+    # Empty portion - Gruvbox bg2
+    text.append("░" * (width - filled), style=GRV_BG2)
 
     if show_percent:
         text.append(f" {percent*100:5.1f}%", style=text_color)
@@ -220,10 +259,13 @@ class AxisPlot:
         self.plot_width = width - self.y_axis_width - 1
 
     def render(self, values, timestamps, y_label, y_unit, min_val=None, max_val=None,
-               color="cyan", process_names=None, color_max=100):
-        """Render a beautiful plot with axes."""
+               color=None, process_names=None, color_max=100):
+        """Render a beautiful plot with axes using Gruvbox colors."""
+        if color is None:
+            color = GRV_AQUA
+
         if not values:
-            return Text("  No data available", style="dim")
+            return Text("  No data available", style=GRV_FG4)
 
         # Calculate value range
         if min_val is None:
@@ -246,21 +288,21 @@ class AxisPlot:
 
         text = Text()
 
-        # Title line with current value
-        text.append(f"  {y_label}", style="bold")
+        # Title line with current value - Gruvbox styled
+        text.append(f"  {y_label}", style=f"bold {GRV_FG}")
         text.append(f" {current_val:.1f}", style=f"bold {value_color}")
         text.append(f"{y_unit}", style=value_color)
-        text.append(f"  avg:", style="dim")
-        text.append(f"{avg_val:.1f}{y_unit}", style="dim")
+        text.append(f"  avg:", style=GRV_FG4)
+        text.append(f"{avg_val:.1f}{y_unit}", style=GRV_FG4)
         text.append("\n")
 
-        # Top border with max value
+        # Top border with max value - Gruvbox styled
         if y_unit == "GB":
             max_label = f"{max_val:5.1f}"
         else:
             max_label = f"{max_val:5.0f}"
-        text.append(f" {max_label}│", style="dim")
-        text.append("┌" + "─" * self.plot_width + "┐", style="#6e7681")
+        text.append(f" {max_label}│", style=GRV_FG4)
+        text.append("┌" + "─" * self.plot_width + "┐", style=GRV_BG3)
         text.append("\n")
 
         # Create braille graph with per-column coloring based on actual values
@@ -272,30 +314,30 @@ class AxisPlot:
         )
 
         for i, line_text in enumerate(graph_lines):
-            # Y-axis label (only at certain positions)
+            # Y-axis label (only at certain positions) - Gruvbox styled
             if i == len(graph_lines) // 2:
                 mid_val = (max_val + min_val) / 2
                 if y_unit == "GB":
-                    text.append(f"{mid_val:6.1f}│", style="dim")
+                    text.append(f"{mid_val:6.1f}│", style=GRV_FG4)
                 else:
-                    text.append(f"{mid_val:6.0f}│", style="dim")
+                    text.append(f"{mid_val:6.0f}│", style=GRV_FG4)
             else:
-                text.append("      │", style="dim")
+                text.append("      │", style=GRV_FG4)
 
             text.append_text(line_text)
-            text.append("│", style="#6e7681")
+            text.append("│", style=GRV_BG3)
             text.append("\n")
 
-        # Bottom border with min value
+        # Bottom border with min value - Gruvbox styled
         if y_unit == "GB":
             min_label = f"{min_val:5.1f}"
         else:
             min_label = f"{min_val:5.0f}"
-        text.append(f" {min_label}│", style="dim")
-        text.append("└" + "─" * self.plot_width + "┘", style="#6e7681")
+        text.append(f" {min_label}│", style=GRV_FG4)
+        text.append("└" + "─" * self.plot_width + "┘", style=GRV_BG3)
         text.append("\n")
 
-        # X-axis time labels
+        # X-axis time labels - Gruvbox styled
         if timestamps:
             start_time = timestamps[0]
             end_time = timestamps[-1]
@@ -314,10 +356,10 @@ class AxisPlot:
             if gap > 0:
                 time_line += " " * gap
             time_line += end_str
-            text.append(time_line, style="dim")
+            text.append(time_line, style=GRV_FG4)
             text.append("\n")
 
-        # Process info (if available)
+        # Process info (if available) - Gruvbox styled
         if process_names:
             unique_procs = []
             for proc in process_names:
@@ -328,19 +370,19 @@ class AxisPlot:
                 proc_str = unique_procs[-1]  # Show most recent
                 if len(proc_str) > self.width - 10:
                     proc_str = proc_str[:self.width - 13] + "..."
-                text.append(f"       ⚙ ", style="dim")
-                text.append(proc_str, style="italic magenta")
+                text.append(f"       ⚙ ", style=GRV_FG4)
+                text.append(proc_str, style=f"italic {GRV_PURPLE}")
                 text.append("\n")
 
         return text
 
 
 def create_plot(values, timestamps, metric_name, y_label, y_unit, width=50, height=6, process_names=None):
-    """Create a beautiful high-resolution plot."""
+    """Create a beautiful high-resolution plot with Gruvbox colors."""
     if not values:
-        return Text("  No data", style="dim")
+        return Text("  No data", style=GRV_FG4)
 
-    # Color thresholds based on metric type
+    # Color thresholds based on metric type - uses Gruvbox gradient colors
     avg = sum(values) / len(values)
 
     if metric_name == "util":
@@ -365,7 +407,7 @@ def create_plot(values, timestamps, metric_name, y_label, y_unit, width=50, heig
         max_val = None
         color_max = 400  # Watts
     else:
-        color = "cyan"
+        color = GRV_AQUA
         min_val = None
         max_val = None
         color_max = 100

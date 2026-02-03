@@ -12,6 +12,31 @@ from pathlib import Path
 from .utils import parse_log_file, format_timestamp, parse_timestamp
 from .plotter import create_plot
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# GRUVBOX DARK THEME - 256 COLOR PALETTE (tmux compatible)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Background:  bg0=235, bg1=237, bg2=239, bg3=241, bg4=243
+# Foreground:  fg=223, fg4=246
+# Accents:     red=167, green=142, yellow=214, blue=109
+#              purple=175, aqua=108, orange=208
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Gruvbox 256-color constants
+GRV_BG0 = "color(235)"      # #282828
+GRV_BG1 = "color(237)"      # #3c3836
+GRV_BG2 = "color(239)"      # #504945
+GRV_BG3 = "color(241)"      # #665c54
+GRV_BG4 = "color(243)"      # #7c6f64
+GRV_FG = "color(223)"       # #ebdbb2
+GRV_FG4 = "color(246)"      # #a89984
+GRV_RED = "color(167)"      # #fb4934
+GRV_GREEN = "color(142)"    # #b8bb26
+GRV_YELLOW = "color(214)"   # #fabd2f
+GRV_BLUE = "color(109)"     # #83a598
+GRV_PURPLE = "color(175)"   # #d3869b
+GRV_AQUA = "color(108)"     # #8ec07c
+GRV_ORANGE = "color(208)"   # #fe8019
+
 
 class Sparkline(Static):
     """A compact sparkline chart widget."""
@@ -19,10 +44,12 @@ class Sparkline(Static):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.values = []
-        self.color = "cyan"
+        self.color = GRV_AQUA
 
-    def update_values(self, values, color="cyan"):
-        """Update sparkline with new values."""
+    def update_values(self, values, color=None):
+        """Update sparkline with new values. Uses Gruvbox aqua by default."""
+        if color is None:
+            color = GRV_AQUA
         self.values = values[-60:] if len(values) > 60 else values  # Keep last 60 points
         self.color = color
         self.refresh()
@@ -30,7 +57,7 @@ class Sparkline(Static):
     def render(self) -> Text:
         """Render sparkline using block characters."""
         if not self.values:
-            return Text("" * 30, style=f"dim")
+            return Text("" * 30, style=GRV_FG4)
 
         # Sparkline characters
         chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█']
@@ -70,13 +97,13 @@ class MetricBar(Static):
         percentage = (self.value / self.max_value) if self.max_value > 0 else 0
         filled = int(width * percentage)
 
-        # Color based on percentage
+        # Color based on percentage - Gruvbox colors
         if percentage < 0.5:
-            color = "green"
+            color = GRV_GREEN
         elif percentage < 0.75:
-            color = "yellow"
+            color = GRV_YELLOW
         else:
-            color = "red"
+            color = GRV_RED
 
         # Create bar
         bar = '█' * filled + '░' * (width - filled)
@@ -94,7 +121,7 @@ class MetricBar(Static):
             value_str = f"{self.value:.1f}{self.unit}"
 
         text = Text()
-        text.append(f"{self.label:8s} ", style="bold cyan")
+        text.append(f"{self.label:8s} ", style=f"bold {GRV_AQUA}")
         text.append(bar, style=color)
         text.append(f" {value_str}", style=f"bold {color}")
 
@@ -127,9 +154,9 @@ class GPUCard(Static):
         text = Text()
 
         if not self.metrics:
-            text.append(f"  GPU {self.gpu_id}", style="bold cyan")
-            text.append(" │ ", style="bright_black")
-            text.append("Waiting for data...", style="dim italic")
+            text.append(f"  GPU {self.gpu_id}", style=f"bold {GRV_AQUA}")
+            text.append(" │ ", style=GRV_BG4)
+            text.append("Waiting for data...", style=f"italic {GRV_FG4}")
             return text
 
         metrics = self.metrics
@@ -139,31 +166,31 @@ class GPUCard(Static):
         # ═══════════════════════════════════════════════════════════
         util = metrics['utilization_gpu']
 
-        # Status indicator with icon
+        # Status indicator with icon (Gruvbox colors)
         if util > 80:
             status_icon = "●"
-            status_color = "red"
+            status_color = GRV_RED
             status_text = "HIGH"
         elif util > 30:
             status_icon = "●"
-            status_color = "yellow"
+            status_color = GRV_YELLOW
             status_text = "ACTIVE"
         else:
             status_icon = "●"
-            status_color = "green"
+            status_color = GRV_GREEN
             status_text = "IDLE"
 
-        text.append(f" GPU {self.gpu_id}", style="bold white")
-        text.append(" │ ", style="bright_black")
+        text.append(f" GPU {self.gpu_id}", style=f"bold {GRV_FG}")
+        text.append(" │ ", style=GRV_BG4)
         text.append(f"{status_icon} ", style=f"bold {status_color}")
-        text.append(f"{status_text}", style=f"{status_color}")
+        text.append(f"{status_text}", style=status_color)
         text.append("\n")
 
         # Process info on its own row
         process_info = metrics.get('process_info', '')
         if process_info:
-            text.append(" ⚙ ", style="dim")
-            text.append(f"{process_info}", style="magenta")
+            text.append(" ⚙ ", style=GRV_FG4)
+            text.append(f"{process_info}", style=GRV_PURPLE)
             text.append("\n")
 
         # ═══════════════════════════════════════════════════════════
@@ -174,29 +201,31 @@ class GPUCard(Static):
         temp = metrics['temperature']
         power = metrics['power_draw']
 
-        # GPU and Memory on same line (smaller bars)
-        text.append(" GPU ", style="dim")
+        # GPU and Memory on same line (smaller bars) - Gruvbox colors
+        text.append(" GPU ", style=GRV_FG4)
         text.append_text(create_progress_bar(util, 100, width=8, show_percent=False))
-        text.append(f"{util:4.0f}%", style="bold " + ("red" if util > 80 else ("yellow" if util > 30 else "green")))
+        util_color = GRV_RED if util > 80 else (GRV_YELLOW if util > 30 else GRV_GREEN)
+        text.append(f"{util:4.0f}%", style=f"bold {util_color}")
 
-        text.append(" │ ", style="bright_black")
-        text.append("MEM ", style="dim")
+        text.append(" │ ", style=GRV_BG4)
+        text.append("MEM ", style=GRV_FG4)
         mem_pct = (mem_used / mem_total * 100) if mem_total > 0 else 0
         text.append_text(create_progress_bar(mem_used, mem_total, width=8, show_percent=False))
-        text.append(f"{mem_used:4.0f}G", style="bold " + ("red" if mem_pct > 80 else ("yellow" if mem_pct > 60 else "green")))
+        mem_color = GRV_RED if mem_pct > 80 else (GRV_YELLOW if mem_pct > 60 else GRV_GREEN)
+        text.append(f"{mem_used:4.0f}G", style=f"bold {mem_color}")
 
         text.append("\n")
 
-        # Temperature and Power on second line (smaller bars)
-        text.append(" TMP ", style="dim")
+        # Temperature and Power on second line (smaller bars) - Gruvbox colors
+        text.append(" TMP ", style=GRV_FG4)
         text.append_text(create_progress_bar(temp, 100, width=8, show_percent=False))
-        temp_color = "red" if temp > 80 else ("yellow" if temp > 65 else "green")
+        temp_color = GRV_RED if temp > 80 else (GRV_YELLOW if temp > 65 else GRV_GREEN)
         text.append(f"{temp:4.0f}°", style=f"bold {temp_color}")
 
-        text.append(" │ ", style="bright_black")
-        text.append("PWR ", style="dim")
+        text.append(" │ ", style=GRV_BG4)
+        text.append("PWR ", style=GRV_FG4)
         text.append_text(create_progress_bar(power, 400, width=8, show_percent=False))
-        power_color = "red" if power > 300 else ("yellow" if power > 200 else "green")
+        power_color = GRV_RED if power > 300 else (GRV_YELLOW if power > 200 else GRV_GREEN)
         text.append(f"{power:4.0f}W", style=f"bold {power_color}")
 
         text.append("\n")
@@ -208,7 +237,7 @@ class GPUCard(Static):
             timestamps = [parse_timestamp(p['timestamp']) for p in self.history]
             process_names = [p.get('process_info', '') for p in self.history]
 
-            text.append(" ───────────────────────────────────────────────\n", style="#6e7681")
+            text.append(" ───────────────────────────────────────────────\n", style=GRV_BG3)
 
             if self.show_gpu:
                 util_values = [p['utilization_gpu'] for p in self.history]
@@ -240,34 +269,38 @@ class GPUCard(Static):
 class GPUMonitorApp(App):
     """Main Textual application for GPU monitoring with enhanced aesthetics."""
 
+    # ═══════════════════════════════════════════════════════════════════════════
+    # GRUVBOX DARK THEME - 256 COLOR CSS
+    # ═══════════════════════════════════════════════════════════════════════════
+
     CSS = """
     Screen {
-        background: #0d1117;
+        background: ansi_black;
     }
 
     Header {
-        background: #161b22;
-        color: #c9d1d9;
+        background: ansi_bright_black;
+        color: ansi_white;
         text-style: bold;
         height: 1;
     }
 
     Footer {
-        background: #161b22;
+        background: ansi_bright_black;
         height: 1;
     }
 
     #main-container {
         height: 1fr;
         padding: 0;
-        background: #0d1117;
+        background: ansi_black;
         scrollbar-gutter: stable;
     }
 
     #title-bar {
         height: 2;
-        background: #161b22;
-        color: #58a6ff;
+        background: ansi_bright_black;
+        color: ansi_yellow;
         content-align: center middle;
         text-style: bold;
         border: none;
@@ -286,26 +319,26 @@ class GPUMonitorApp(App):
         height: auto;
         min-height: 15;
         min-width: 56;
-        background: #161b22;
-        border: solid #6e7681;
+        background: ansi_bright_black;
+        border: solid ansi_bright_black;
         padding: 0 1;
     }
 
     GPUCard:hover {
-        border: solid #58a6ff;
+        border: solid ansi_yellow;
     }
 
     #controls {
         dock: bottom;
         height: 1;
-        background: #161b22;
-        color: #8b949e;
+        background: ansi_bright_black;
+        color: ansi_white;
         content-align: center middle;
         border-top: none;
     }
 
     .status-bar {
-        background: #161b22;
+        background: ansi_bright_black;
         height: auto;
         padding: 1;
     }
@@ -428,19 +461,19 @@ class GPUMonitorApp(App):
         """Update title bar with file info."""
         title_text = Text()
 
-        # Clean, minimal title
-        title_text.append("  ◈ ", style="bold #58a6ff")
-        title_text.append("GPU Monitor", style="bold white")
-        title_text.append("  │  ", style="#30363d")
-        title_text.append(f"{len(self.gpu_ids)}", style="bold #7ee787")
-        title_text.append(" GPUs", style="#7ee787")
-        title_text.append("  │  ", style="#30363d")
-        title_text.append(f"{self.log_file.name}", style="#8b949e")
+        # Clean, minimal title - Gruvbox colors
+        title_text.append("  ◈ ", style=f"bold {GRV_YELLOW}")
+        title_text.append("GPU Monitor", style=f"bold {GRV_FG}")
+        title_text.append("  │  ", style=GRV_BG3)
+        title_text.append(f"{len(self.gpu_ids)}", style=f"bold {GRV_GREEN}")
+        title_text.append(" GPUs", style=GRV_GREEN)
+        title_text.append("  │  ", style=GRV_BG3)
+        title_text.append(f"{self.log_file.name}", style=GRV_FG4)
 
         if self.live_mode:
-            title_text.append("  │  ", style="#30363d")
-            title_text.append("● ", style="bold #f85149")
-            title_text.append("LIVE", style="#f85149")
+            title_text.append("  │  ", style=GRV_BG3)
+            title_text.append("● ", style=f"bold {GRV_RED}")
+            title_text.append("LIVE", style=GRV_RED)
 
         title_bar = self.query_one("#title-bar", Static)
         title_bar.update(title_text)
@@ -536,30 +569,31 @@ class GPUMonitorApp(App):
         # Update controls info - clean minimal style
         window_sec = (self.view_end - self.view_start).total_seconds()
 
+        # Gruvbox themed controls
         controls_text = Text()
         controls_text.append("  ", style="")
-        controls_text.append(f"{self.view_start.strftime('%H:%M:%S')}", style="#8b949e")
-        controls_text.append(" → ", style="#30363d")
-        controls_text.append(f"{self.view_end.strftime('%H:%M:%S')}", style="#8b949e")
-        controls_text.append(f"  {window_sec:.0f}s", style="#58a6ff")
+        controls_text.append(f"{self.view_start.strftime('%H:%M:%S')}", style=GRV_FG4)
+        controls_text.append(" → ", style=GRV_BG3)
+        controls_text.append(f"{self.view_end.strftime('%H:%M:%S')}", style=GRV_FG4)
+        controls_text.append(f"  {window_sec:.0f}s", style=GRV_BLUE)
 
-        controls_text.append("  │  ", style="#30363d")
+        controls_text.append("  │  ", style=GRV_BG3)
 
         if self.paused:
-            controls_text.append("▐▐ ", style="#f85149")
-            controls_text.append("PAUSED", style="#f85149")
+            controls_text.append("▐▐ ", style=GRV_RED)
+            controls_text.append("PAUSED", style=GRV_RED)
         elif self.live_mode and self.following:
-            controls_text.append("● ", style="#7ee787")
-            controls_text.append("LIVE", style="#7ee787")
+            controls_text.append("● ", style=GRV_GREEN)
+            controls_text.append("LIVE", style=GRV_GREEN)
         elif self.live_mode and not self.following:
-            controls_text.append("◆ ", style="#f0883e")
-            controls_text.append("HISTORY", style="#f0883e")
+            controls_text.append("◆ ", style=GRV_ORANGE)
+            controls_text.append("HISTORY", style=GRV_ORANGE)
         else:
-            controls_text.append("◼ ", style="#58a6ff")
-            controls_text.append("STATIC", style="#58a6ff")
+            controls_text.append("◼ ", style=GRV_BLUE)
+            controls_text.append("STATIC", style=GRV_BLUE)
 
-        controls_text.append("  │  ", style="#30363d")
-        controls_text.append(f"{len(visible_data)} samples", style="#8b949e")
+        controls_text.append("  │  ", style=GRV_BG3)
+        controls_text.append(f"{len(visible_data)} samples", style=GRV_FG4)
 
         controls = self.query_one("#controls", Static)
         controls.update(controls_text)
