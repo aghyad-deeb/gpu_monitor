@@ -275,30 +275,26 @@ class GPUMonitorApp(App):
 
     CSS = """
     Screen {
-        background: transparent;
+        layers: base overlay;
     }
 
     Header {
-        background: transparent;
         text-style: bold;
         height: 1;
     }
 
     Footer {
-        background: transparent;
         height: 1;
     }
 
     #main-container {
         height: 1fr;
         padding: 0;
-        background: transparent;
         scrollbar-gutter: stable;
     }
 
     #title-bar {
         height: 2;
-        background: transparent;
         content-align: center middle;
         text-style: bold;
         border: none;
@@ -317,7 +313,6 @@ class GPUMonitorApp(App):
         height: auto;
         min-height: 15;
         min-width: 56;
-        background: transparent;
         border: solid grey;
         padding: 0 1;
     }
@@ -329,13 +324,11 @@ class GPUMonitorApp(App):
     #controls {
         dock: bottom;
         height: 1;
-        background: transparent;
         content-align: center middle;
         border-top: none;
     }
 
     .status-bar {
-        background: transparent;
         height: auto;
         padding: 1;
     }
