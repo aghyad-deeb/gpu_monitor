@@ -353,6 +353,7 @@ class GPUMonitorApp(App):
         # following = True means view auto-scrolls with new data
         # following = False means view stays fixed (user panned away from "now")
         self.following = True
+        self._scroll_container = None  # Cached for fast scrolling
 
     def compose(self) -> ComposeResult:
         """Compose the UI."""
@@ -388,6 +389,9 @@ class GPUMonitorApp(App):
         self.reset_view()
         self.update_title()
         self.update_grid_columns()
+
+        # Cache scroll container for fast scrolling
+        self._scroll_container = self.query_one("#main-container", VerticalScroll)
 
         # Delay initial update to ensure widgets are fully mounted
         self.set_timer(0.1, self.update_plots)
@@ -712,30 +716,30 @@ class GPUMonitorApp(App):
 
     def action_scroll_down(self):
         """Scroll down (vim j)."""
-        container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_relative(y=5, animate=False)
+        if self._scroll_container:
+            self._scroll_container.scroll_relative(y=5, animate=False)
 
     def action_scroll_up(self):
         """Scroll up (vim k)."""
-        container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_relative(y=-5, animate=False)
+        if self._scroll_container:
+            self._scroll_container.scroll_relative(y=-5, animate=False)
 
     def action_page_down(self):
         """Scroll down half page (vim Ctrl+d)."""
-        container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_relative(y=container.size.height // 2, animate=False)
+        if self._scroll_container:
+            self._scroll_container.scroll_relative(y=self._scroll_container.size.height // 2, animate=False)
 
     def action_page_up(self):
         """Scroll up half page (vim Ctrl+u)."""
-        container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_relative(y=-container.size.height // 2, animate=False)
+        if self._scroll_container:
+            self._scroll_container.scroll_relative(y=-self._scroll_container.size.height // 2, animate=False)
 
     def action_scroll_top(self):
         """Scroll to top (vim g)."""
-        container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_home(animate=False)
+        if self._scroll_container:
+            self._scroll_container.scroll_home(animate=False)
 
     def action_scroll_bottom(self):
         """Scroll to bottom (vim G)."""
-        container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_end(animate=False)
+        if self._scroll_container:
+            self._scroll_container.scroll_end(animate=False)
