@@ -713,29 +713,29 @@ class GPUMonitorApp(App):
     def action_scroll_down(self):
         """Scroll down (vim j)."""
         container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_relative(y=3)
+        container.scroll_relative(y=5, animate=False)
 
     def action_scroll_up(self):
         """Scroll up (vim k)."""
         container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_relative(y=-3)
+        container.scroll_relative(y=-5, animate=False)
 
     def action_page_down(self):
         """Scroll down half page (vim Ctrl+d)."""
         container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_relative(y=container.size.height // 2)
+        container.scroll_relative(y=container.size.height // 2, animate=False)
 
     def action_page_up(self):
         """Scroll up half page (vim Ctrl+u)."""
         container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_relative(y=-container.size.height // 2)
+        container.scroll_relative(y=-container.size.height // 2, animate=False)
 
     def action_scroll_top(self):
         """Scroll to top (vim g)."""
         container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_home()
+        container.scroll_home(animate=False)
 
     def action_scroll_bottom(self):
         """Scroll to bottom (vim G)."""
         container = self.query_one("#main-container", VerticalScroll)
-        container.scroll_end()
+        container.scroll_end(animate=False)
