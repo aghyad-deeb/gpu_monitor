@@ -273,28 +273,34 @@ class GPUMonitorApp(App):
     # GRUVBOX DARK THEME - 256 COLOR CSS
     # ═══════════════════════════════════════════════════════════════════════════
 
+    # Gruvbox Dark theme - hex colors mapped to 256-color by Textual
+    # bg0=#282828, bg1=#3c3836, bg3=#665c54, yellow=#fabd2f
     CSS = """
     Screen {
-        layers: base overlay;
+        background: #282828;
     }
 
     Header {
+        background: #3c3836;
         text-style: bold;
         height: 1;
     }
 
     Footer {
+        background: #3c3836;
         height: 1;
     }
 
     #main-container {
         height: 1fr;
         padding: 0;
+        background: #282828;
         scrollbar-gutter: stable;
     }
 
     #title-bar {
         height: 2;
+        background: #3c3836;
         content-align: center middle;
         text-style: bold;
         border: none;
@@ -313,22 +319,25 @@ class GPUMonitorApp(App):
         height: auto;
         min-height: 15;
         min-width: 56;
-        border: solid grey;
+        background: #3c3836;
+        border: solid #665c54;
         padding: 0 1;
     }
 
     GPUCard:hover {
-        border: solid yellow;
+        border: solid #fabd2f;
     }
 
     #controls {
         dock: bottom;
         height: 1;
+        background: #3c3836;
         content-align: center middle;
         border-top: none;
     }
 
     .status-bar {
+        background: #3c3836;
         height: auto;
         padding: 1;
     }
