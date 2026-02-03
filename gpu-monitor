@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
+import os
 import sys
 from pathlib import Path
+
+# Force 256-color mode for tmux compatibility
+os.environ.setdefault('TEXTUAL_COLOR_SYSTEM', '256')
 
 # Add package to path for local execution
 sys.path.insert(0, str(Path(__file__).parent))
