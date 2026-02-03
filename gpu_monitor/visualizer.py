@@ -275,32 +275,30 @@ class GPUMonitorApp(App):
 
     CSS = """
     Screen {
-        background: ansi_black;
+        background: transparent;
     }
 
     Header {
-        background: ansi_bright_black;
-        color: ansi_white;
+        background: transparent;
         text-style: bold;
         height: 1;
     }
 
     Footer {
-        background: ansi_bright_black;
+        background: transparent;
         height: 1;
     }
 
     #main-container {
         height: 1fr;
         padding: 0;
-        background: ansi_black;
+        background: transparent;
         scrollbar-gutter: stable;
     }
 
     #title-bar {
         height: 2;
-        background: ansi_bright_black;
-        color: ansi_yellow;
+        background: transparent;
         content-align: center middle;
         text-style: bold;
         border: none;
@@ -319,26 +317,25 @@ class GPUMonitorApp(App):
         height: auto;
         min-height: 15;
         min-width: 56;
-        background: ansi_bright_black;
-        border: solid ansi_bright_black;
+        background: transparent;
+        border: solid grey;
         padding: 0 1;
     }
 
     GPUCard:hover {
-        border: solid ansi_yellow;
+        border: solid yellow;
     }
 
     #controls {
         dock: bottom;
         height: 1;
-        background: ansi_bright_black;
-        color: ansi_white;
+        background: transparent;
         content-align: center middle;
         border-top: none;
     }
 
     .status-bar {
-        background: ansi_bright_black;
+        background: transparent;
         height: auto;
         padding: 1;
     }
