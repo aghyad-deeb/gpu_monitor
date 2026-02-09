@@ -1,4 +1,5 @@
 import argparse
+import subprocess
 import sys
 import threading
 import time
@@ -85,40 +86,50 @@ def main():
 
 
 def run_combined_mode():
-    """Run logging and visualization together in one command."""
-    # Create log file path
+    """Start logging as a detached background process, then open live viewer."""
+    # Find the gpu-monitor script path
+    script_path = Path(__file__).parent.parent / 'gpu-monitor'
+
+    # Check if logging is already running by looking for a recently-modified log
+    latest = get_latest_log()
+    if latest:
+        mtime = latest.stat().st_mtime
+        if time.time() - mtime < 5:
+            # Log file updated within last 5 seconds - logging already active
+            print(f"Logging already active: {latest.name}")
+            log_file = latest
+        else:
+            # Stale log, start new logging process
+            log_file = _start_background_logger(script_path)
+    else:
+        log_file = _start_background_logger(script_path)
+
+    # Run viewer with live mode
+    app = GPUMonitorApp(log_file, live_mode=True,
+                       show_gpu=False, show_mem=True, show_temp=False, show_power=False)
+    app.run()
+
+
+def _start_background_logger(script_path):
+    """Start gpu-monitor log as a detached background process."""
     logs_dir = Path(__file__).parent.parent / 'logs'
     logs_dir.mkdir(exist_ok=True)
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     log_file = logs_dir / f'gpu_{timestamp}.csv'
 
-    # Create logger instance
-    logger = GPULogger(log_file, interval=1.0)
+    # Start as detached subprocess that survives parent exit
+    subprocess.Popen(
+        [sys.executable, str(script_path), 'log', '--output', str(log_file)],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
-    # Start logging in background thread
-    stop_event = threading.Event()
+    print(f"Started background logger: {log_file.name}")
 
-    def logging_thread():
-        try:
-            logger.start_logging(stop_event)
-        except Exception as e:
-            print(f"Logging error: {e}", file=sys.stderr)
-
-    log_thread = threading.Thread(target=logging_thread, daemon=True)
-    log_thread.start()
-
-    # Give logger time to write initial data
-    time.sleep(1.5)
-
-    # Run visualizer in main thread (default: memory only)
-    try:
-        app = GPUMonitorApp(log_file, live_mode=True,
-                           show_gpu=False, show_mem=True, show_temp=False, show_power=False)
-        app.run()
-    finally:
-        # Clean shutdown
-        stop_event.set()
-        log_thread.join(timeout=2.0)
+    # Wait for initial data
+    time.sleep(2.0)
+    return log_file
 
 
 def run_log_mode(args):

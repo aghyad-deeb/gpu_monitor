@@ -40,9 +40,13 @@ def parse_log_file(log_path):
         reader = csv.DictReader(f)
         for row in reader:
             try:
+                ts = parse_timestamp(row['timestamp'])
+                if ts is None:
+                    continue
                 # Convert numeric values
                 parsed_row = {
                     'timestamp': row['timestamp'],
+                    '_ts': ts,
                     'gpu_id': int(row['gpu_id']),
                     'utilization_gpu': float(row['utilization_gpu']),
                     'memory_used': float(row['memory_used']),
@@ -57,6 +61,46 @@ def parse_log_file(log_path):
                 continue
 
     return data
+
+
+def parse_log_file_incremental(log_path, file_pos):
+    """Read new rows appended to a log file since file_pos.
+
+    Returns (new_data, new_file_pos).
+    """
+    log_path = Path(log_path)
+    new_data = []
+
+    with open(log_path, 'r') as f:
+        f.seek(file_pos)
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split(',', 7)  # 8 fields max
+            if len(parts) < 7:
+                continue
+            try:
+                ts = parse_timestamp(parts[0])
+                if ts is None:
+                    continue
+                parsed_row = {
+                    'timestamp': parts[0],
+                    '_ts': ts,
+                    'gpu_id': int(parts[1]),
+                    'utilization_gpu': float(parts[2]),
+                    'memory_used': float(parts[3]),
+                    'memory_total': float(parts[4]),
+                    'temperature': float(parts[5]),
+                    'power_draw': float(parts[6]) if parts[6] else 0.0,
+                    'process_info': parts[7] if len(parts) > 7 else ''
+                }
+                new_data.append(parsed_row)
+            except (ValueError, IndexError):
+                continue
+        new_pos = f.tell()
+
+    return new_data, new_pos
 
 
 def format_timestamp(ts_str):

@@ -1,15 +1,17 @@
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static, Label
 from textual.containers import Container, Vertical, Horizontal, Grid, VerticalScroll
-from textual import events
+from textual import events, work
 from textual.reactive import reactive
 from rich.text import Text
 from rich.style import Style
+import os
 import time
+from bisect import bisect_left, bisect_right
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from .utils import parse_log_file, format_timestamp, parse_timestamp
+from .utils import parse_log_file, parse_log_file_incremental, format_timestamp, parse_timestamp
 from .plotter import create_plot
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -234,7 +236,7 @@ class GPUCard(Static):
         # GRAPH: High-resolution Braille plot
         # ═══════════════════════════════════════════════════════════
         if self.history:
-            timestamps = [parse_timestamp(p['timestamp']) for p in self.history]
+            timestamps = [p['_ts'] for p in self.history]
             process_names = [p.get('process_info', '') for p in self.history]
 
             text.append(" ───────────────────────────────────────────────\n", style=GRV_BG3)
@@ -376,6 +378,8 @@ class GPUMonitorApp(App):
         self.show_temp = show_temp
         self.show_power = show_power
         self.all_data = []
+        self._timestamps = []  # Parallel list of datetime objects for bisect
+        self._file_pos = 0  # Track file position for incremental reads
         self.view_start = None
         self.view_end = None
         self.default_window = 300  # 5 minutes
@@ -404,10 +408,36 @@ class GPUMonitorApp(App):
     def on_mount(self) -> None:
         """Initialize when app is mounted."""
         self.title = "GPU Monitor"
-        self.load_data()
 
-        # Detect GPUs
-        if self.all_data:
+        # Cache scroll container for fast scrolling
+        self._scroll_container = self.query_one("#main-container", VerticalScroll)
+
+        self.update_title()
+        self.update_grid_columns()
+
+        # Load data in background thread to avoid blocking the UI
+        self._start_async_load()
+
+        if self.live_mode:
+            self.set_interval(self.update_interval, self.update_live_data)
+
+    @work(thread=True)
+    def _start_async_load(self) -> None:
+        """Load data in a background thread to avoid blocking the UI."""
+        try:
+            data = parse_log_file(self.log_file)
+        except Exception:
+            data = []
+        file_pos = os.path.getsize(self.log_file) if self.log_file.exists() else 0
+        self.call_from_thread(self._on_data_loaded, data, file_pos)
+
+    def _on_data_loaded(self, data, file_pos):
+        """Called on the main thread after data loading completes."""
+        self.all_data = data
+        self._file_pos = file_pos
+        self._build_timestamp_index()
+
+        if self.all_data and not self.gpu_ids:
             self.gpu_ids = sorted(set(point['gpu_id'] for point in self.all_data))
 
             # Add GPU cards
@@ -422,14 +452,12 @@ class GPUMonitorApp(App):
         self.update_title()
         self.update_grid_columns()
 
-        # Cache scroll container for fast scrolling
-        self._scroll_container = self.query_one("#main-container", VerticalScroll)
-
         # Delay initial update to ensure widgets are fully mounted
         self.set_timer(0.1, self.update_plots)
 
-        if self.live_mode:
-            self.set_interval(self.update_interval, self.update_live_data)
+    def _build_timestamp_index(self):
+        """Build a sorted list of timestamps for binary search."""
+        self._timestamps = [point['_ts'] for point in self.all_data]
 
     def on_resize(self, event) -> None:
         """Handle terminal resize."""
@@ -481,13 +509,30 @@ class GPUMonitorApp(App):
         """Load data from log file."""
         try:
             self.all_data = parse_log_file(self.log_file)
+            self._build_timestamp_index()
         except Exception as e:
             self.all_data = []
+            self._timestamps = []
 
     def update_live_data(self):
-        """Periodically reload data in live mode."""
+        """Periodically read new data appended to the log file."""
         if not self.paused and self.live_mode:
-            self.load_data()
+            # Guard against file truncation/rotation
+            try:
+                current_size = os.path.getsize(self.log_file)
+            except OSError:
+                return
+
+            if current_size < self._file_pos:
+                # File was truncated/rotated, reload from scratch
+                self.load_data()
+                self._file_pos = current_size
+            else:
+                new_data, new_pos = parse_log_file_incremental(self.log_file, self._file_pos)
+                if new_data:
+                    self._file_pos = new_pos
+                    self.all_data.extend(new_data)
+                    self._timestamps.extend(point['_ts'] for point in new_data)
 
             # Create GPU cards if they don't exist yet (first data arrival)
             if self.all_data and not self.gpu_ids:
@@ -502,11 +547,10 @@ class GPUMonitorApp(App):
 
             if self.all_data and self.following:
                 # Only auto-scroll if following (user hasn't panned away)
-                last_ts = parse_timestamp(self.all_data[-1]['timestamp'])
-                if last_ts:
-                    window_size = self.view_end - self.view_start if self.view_end and self.view_start else timedelta(seconds=self.default_window)
-                    self.view_end = last_ts
-                    self.view_start = self.view_end - window_size
+                last_ts = self.all_data[-1]['_ts']
+                window_size = self.view_end - self.view_start if self.view_end and self.view_start else timedelta(seconds=self.default_window)
+                self.view_end = last_ts
+                self.view_start = self.view_end - window_size
 
             self.update_plots()
 
@@ -516,29 +560,21 @@ class GPUMonitorApp(App):
             self.view_start = datetime.now() - timedelta(seconds=self.default_window)
             self.view_end = datetime.now()
         else:
-            last_ts = parse_timestamp(self.all_data[-1]['timestamp'])
-            if last_ts:
-                self.view_end = last_ts
-                self.view_start = self.view_end - timedelta(seconds=self.default_window)
-            else:
-                self.view_start = datetime.now() - timedelta(seconds=self.default_window)
-                self.view_end = datetime.now()
+            last_ts = self.all_data[-1]['_ts']
+            self.view_end = last_ts
+            self.view_start = self.view_end - timedelta(seconds=self.default_window)
 
         # Don't call update_plots here - let caller handle it
         # to avoid updating before widgets are mounted
 
     def get_visible_data(self):
-        """Get data within the current view window."""
+        """Get data within the current view window using binary search."""
         if not self.all_data or not self.view_start or not self.view_end:
             return []
 
-        visible = []
-        for point in self.all_data:
-            ts = parse_timestamp(point['timestamp'])
-            if ts and self.view_start <= ts <= self.view_end:
-                visible.append(point)
-
-        return visible
+        lo = bisect_left(self._timestamps, self.view_start)
+        hi = bisect_right(self._timestamps, self.view_end)
+        return self.all_data[lo:hi]
 
     def update_plots(self):
         """Update all GPU cards with current view data."""
@@ -609,8 +645,8 @@ class GPUMonitorApp(App):
         self.view_start -= shift
         self.view_end -= shift
 
-        first_ts = parse_timestamp(self.all_data[0]['timestamp'])
-        if first_ts and self.view_start < first_ts:
+        first_ts = self.all_data[0]['_ts']
+        if self.view_start < first_ts:
             self.view_start = first_ts
             self.view_end = self.view_start + window_size
 
@@ -629,8 +665,8 @@ class GPUMonitorApp(App):
         self.view_start += shift
         self.view_end += shift
 
-        last_ts = parse_timestamp(self.all_data[-1]['timestamp'])
-        if last_ts and self.view_end >= last_ts:
+        last_ts = self.all_data[-1]['_ts']
+        if self.view_end >= last_ts:
             # We've reached "now" - re-engage following mode
             self.view_end = last_ts
             self.view_start = self.view_end - window_size
@@ -651,10 +687,9 @@ class GPUMonitorApp(App):
 
         if self.following and self.all_data:
             # Keep anchored to the latest data point
-            last_ts = parse_timestamp(self.all_data[-1]['timestamp'])
-            if last_ts:
-                self.view_end = last_ts
-                self.view_start = self.view_end - new_window
+            last_ts = self.all_data[-1]['_ts']
+            self.view_end = last_ts
+            self.view_start = self.view_end - new_window
         else:
             # Zoom around center
             center = self.view_start + window_size / 2
@@ -673,10 +708,9 @@ class GPUMonitorApp(App):
 
         if self.following and self.all_data:
             # Keep anchored to the latest data point
-            last_ts = parse_timestamp(self.all_data[-1]['timestamp'])
-            if last_ts:
-                self.view_end = last_ts
-                self.view_start = self.view_end - new_window
+            last_ts = self.all_data[-1]['_ts']
+            self.view_end = last_ts
+            self.view_start = self.view_end - new_window
         else:
             # Zoom around center
             center = self.view_start + window_size / 2
@@ -685,13 +719,13 @@ class GPUMonitorApp(App):
 
         # Clamp to data bounds
         if self.all_data:
-            first_ts = parse_timestamp(self.all_data[0]['timestamp'])
-            last_ts = parse_timestamp(self.all_data[-1]['timestamp'])
+            first_ts = self.all_data[0]['_ts']
+            last_ts = self.all_data[-1]['_ts']
 
-            if first_ts and self.view_start < first_ts:
+            if self.view_start < first_ts:
                 self.view_start = first_ts
 
-            if last_ts and self.view_end > last_ts:
+            if self.view_end > last_ts:
                 self.view_end = last_ts
 
         self.update_plots()
@@ -701,9 +735,7 @@ class GPUMonitorApp(App):
         if not self.all_data:
             return
 
-        first_ts = parse_timestamp(self.all_data[0]['timestamp'])
-        if not first_ts:
-            return
+        first_ts = self.all_data[0]['_ts']
 
         window_size = self.view_end - self.view_start
         self.view_start = first_ts
@@ -722,9 +754,7 @@ class GPUMonitorApp(App):
         if not self.all_data:
             return
 
-        last_ts = parse_timestamp(self.all_data[-1]['timestamp'])
-        if not last_ts:
-            return
+        last_ts = self.all_data[-1]['_ts']
 
         window_size = self.view_end - self.view_start
         self.view_end = last_ts
@@ -750,12 +780,12 @@ class GPUMonitorApp(App):
     def action_scroll_down(self):
         """Scroll down (vim j)."""
         if self._scroll_container:
-            self._scroll_container.scroll_relative(y=5, animate=False)
+            self._scroll_container.scroll_relative(y=15, animate=False)
 
     def action_scroll_up(self):
         """Scroll up (vim k)."""
         if self._scroll_container:
-            self._scroll_container.scroll_relative(y=-5, animate=False)
+            self._scroll_container.scroll_relative(y=-15, animate=False)
 
     def action_page_down(self):
         """Scroll down half page (vim Ctrl+d)."""
