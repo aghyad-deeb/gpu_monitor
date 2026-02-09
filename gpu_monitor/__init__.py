@@ -1,4 +1,6 @@
 import argparse
+import os
+import signal
 import subprocess
 import sys
 import threading
@@ -9,6 +11,8 @@ from datetime import datetime
 from .logger import GPULogger
 from .visualizer import GPUMonitorApp
 from .utils import find_logs, get_latest_log
+
+PID_FILE = Path(__file__).parent.parent / 'logs' / '.logger.pid'
 
 
 def main():
@@ -72,6 +76,9 @@ def main():
     # List command
     list_parser = subparsers.add_parser('list', help='List available log files')
 
+    # Stop command
+    stop_parser = subparsers.add_parser('stop', help='Stop background logging')
+
     args = parser.parse_args()
 
     # Default behavior: run both logging and visualization
@@ -83,6 +90,8 @@ def main():
         run_view_mode(args)
     elif args.command == 'list':
         run_list_mode()
+    elif args.command == 'stop':
+        run_stop_mode()
 
 
 def run_combined_mode():
@@ -90,17 +99,23 @@ def run_combined_mode():
     # Find the gpu-monitor script path
     script_path = Path(__file__).parent.parent / 'gpu-monitor'
 
-    # Check if logging is already running by looking for a recently-modified log
+    # Check if logging is already running via PID file
+    logger_active = False
+    pid = None
+    if PID_FILE.exists():
+        try:
+            pid = int(PID_FILE.read_text().strip())
+            os.kill(pid, 0)  # Check if process exists
+            logger_active = True
+        except (ProcessLookupError, ValueError):
+            PID_FILE.unlink(missing_ok=True)
+        except PermissionError:
+            logger_active = True
+
     latest = get_latest_log()
-    if latest:
-        mtime = latest.stat().st_mtime
-        if time.time() - mtime < 5:
-            # Log file updated within last 5 seconds - logging already active
-            print(f"Logging already active: {latest.name}")
-            log_file = latest
-        else:
-            # Stale log, start new logging process
-            log_file = _start_background_logger(script_path)
+    if logger_active and latest:
+        print(f"Logging already active (PID {pid}): {latest.name}")
+        log_file = latest
     else:
         log_file = _start_background_logger(script_path)
 
@@ -118,14 +133,18 @@ def _start_background_logger(script_path):
     log_file = logs_dir / f'gpu_{timestamp}.csv'
 
     # Start as detached subprocess that survives parent exit
-    subprocess.Popen(
+    proc = subprocess.Popen(
         [sys.executable, str(script_path), 'log', '--output', str(log_file)],
         start_new_session=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
 
-    print(f"Started background logger: {log_file.name}")
+    # Save PID for stop command
+    PID_FILE.parent.mkdir(exist_ok=True)
+    PID_FILE.write_text(str(proc.pid))
+
+    print(f"Started background logger (PID {proc.pid}): {log_file.name}")
 
     # Wait for initial data
     time.sleep(2.0)
@@ -145,6 +164,22 @@ def run_log_mode(args):
     logger = GPULogger(log_file, interval=args.interval)
     stop_event = threading.Event()
 
+    # Write PID so stop command can find us
+    PID_FILE.parent.mkdir(exist_ok=True)
+    PID_FILE.write_text(str(os.getpid()))
+
+    def _cleanup(signum=None, frame=None):
+        stop_event.set()
+        if PID_FILE.exists():
+            try:
+                PID_FILE.unlink()
+            except OSError:
+                pass
+        if signum is not None:
+            sys.exit(0)
+
+    signal.signal(signal.SIGTERM, _cleanup)
+
     print(f"Starting GPU logging to: {log_file}")
     print(f"Sampling interval: {args.interval}s")
     print("Press Ctrl+C to stop")
@@ -153,7 +188,8 @@ def run_log_mode(args):
         logger.start_logging(stop_event)
     except KeyboardInterrupt:
         print("\nStopping logging...")
-        stop_event.set()
+    finally:
+        _cleanup()
 
 
 def run_view_mode(args):
@@ -183,6 +219,26 @@ def run_view_mode(args):
                        show_gpu=show_gpu, show_mem=show_mem,
                        show_temp=show_temp, show_power=show_power)
     app.run()
+
+
+def run_stop_mode():
+    """Stop background logging process."""
+    if not PID_FILE.exists():
+        print("No background logger running (no PID file found)")
+        return
+
+    pid = int(PID_FILE.read_text().strip())
+
+    try:
+        os.kill(pid, signal.SIGTERM)
+        print(f"Stopped background logger (PID {pid})")
+    except ProcessLookupError:
+        print(f"Logger process (PID {pid}) already exited")
+    except PermissionError:
+        print(f"Permission denied stopping PID {pid}", file=sys.stderr)
+        sys.exit(1)
+
+    PID_FILE.unlink(missing_ok=True)
 
 
 def run_list_mode():
